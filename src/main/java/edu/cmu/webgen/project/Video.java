@@ -14,4 +14,8 @@ public class Video extends Media {
     public long getVideoSize() {
         return this.videoSize;
     }
+    @Override
+    protected String getTemplateName() {
+        return "content-fragment-video";
+    }
 }

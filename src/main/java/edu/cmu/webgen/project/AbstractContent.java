@@ -1,7 +1,12 @@
 package edu.cmu.webgen.project;
 
+import java.io.IOException;
 import java.time.LocalDateTime;
 import org.eclipse.jdt.annotation.Nullable;
+
+import edu.cmu.webgen.rendering.TemplateEngine;
+import edu.cmu.webgen.rendering.data.ContentFragment;
+
 
 /**
  * Represents some form of content in this project.
@@ -53,5 +58,7 @@ public abstract class AbstractContent {
     public @Nullable String getTitle() {
         return null;
     }
+
+    public abstract ContentFragment toContentFragment(TemplateEngine engine, String relPath) throws IOException;
 
 }

@@ -370,30 +370,7 @@ public class Renderer {
      * @return a ContentFragment
      */
     public ContentFragment getStoryContentFragment(AbstractContent storyNode, String relPath) throws IOException {
-        if (storyNode instanceof FormattedTextDocument textNode) {
-            StringWriter w = new StringWriter();
-            textNode.toHtml(w);
-            return new ContentFragment(null, w.toString());
-        } else if (storyNode instanceof Image image) {
-            //TODO not yet implemented
-            StringWriter w = new StringWriter();
-            this.templateEngine.render("content-fragment-image",
-                    Map.of("address", image.getMediaPath(), "title", image.hasTitle() ? image.getTitle() : ""), w);
-            return new ContentFragment(null, w.toString());
-        } else if (storyNode instanceof Video image) {
-            //TODO not yet implemented
-            StringWriter w = new StringWriter();
-            this.templateEngine.render("content-fragment-video",
-                    Map.of("address", image.getMediaPath(), "title", image.hasTitle() ? image.getTitle() : ""), w);
-            return new ContentFragment(null, w.toString());
-        } else if (storyNode instanceof Youtube image) {
-            StringWriter w = new StringWriter();
-            this.templateEngine.render("content-fragment-youtube",
-                    Map.of("id", image.getYoutubeId()), w);
-            return new ContentFragment(null, w.toString());
-        } else {
-            throw new RuntimeException("unsupported story content " + storyNode);
-        }
+        return storyNode.toContentFragment(this.templateEngine, relPath);
     }
 
     /**

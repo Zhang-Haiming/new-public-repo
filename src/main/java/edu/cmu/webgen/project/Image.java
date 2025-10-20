@@ -20,4 +20,9 @@ public class Image extends Media {
     public int getAudioLength() {
         throw new UnsupportedOperationException("Images don't have audio length");
     }
+
+    @Override
+    protected String getTemplateName() {
+        return "content-fragment-image";
+    }
 }

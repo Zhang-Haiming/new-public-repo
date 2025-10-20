@@ -1,7 +1,13 @@
 package edu.cmu.webgen.project;
 
 import java.io.File;
+import java.io.IOException;
+import java.io.StringWriter;
 import java.time.LocalDateTime;
+import java.util.Map;
+
+import edu.cmu.webgen.rendering.TemplateEngine;
+import edu.cmu.webgen.rendering.data.ContentFragment;
 
 public class Youtube extends AbstractContent {
     private final String youtubeId;
@@ -19,5 +25,13 @@ public class Youtube extends AbstractContent {
 
     public String getYoutubeId() {
         return this.youtubeId;
+    }
+
+    @Override
+    public ContentFragment toContentFragment(TemplateEngine engine, String relPath) throws IOException {
+        StringWriter w = new StringWriter();
+        engine.render("content-fragment-youtube",
+            Map.of("id", youtubeId), w);
+        return new ContentFragment(null, w.toString());
     }
 }

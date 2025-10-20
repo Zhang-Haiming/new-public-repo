@@ -1,6 +1,8 @@
 package edu.cmu.webgen.project;
 
 import edu.cmu.webgen.WebGen;
+import edu.cmu.webgen.rendering.TemplateEngine;
+import edu.cmu.webgen.rendering.data.ContentFragment;
 
 import org.apache.commons.text.StringEscapeUtils;
 import java.io.StringWriter;
@@ -82,6 +84,13 @@ public class FormattedTextDocument extends AbstractContent {
         return this.textSize;
     }
 
+    @Override
+    public ContentFragment toContentFragment(TemplateEngine engine, String relPath) {
+        StringWriter w = new StringWriter();
+        toHtml(w);
+        return new ContentFragment(null, w.toString());
+    }
+    
     public interface FormattedTextContent {
         void toHtml(StringWriter w);
 

@@ -1,6 +1,5 @@
 package edu.cmu.webgen.parser;
 
-import edu.cmu.webgen.WebGen;
 import edu.cmu.webgen.project.FormattedTextDocument;
 import edu.cmu.webgen.project.Project;
 import edu.cmu.webgen.project.ProjectBuilder;
@@ -9,12 +8,13 @@ import org.apache.commons.io.FileUtils;
 import org.commonmark.ext.front.matter.YamlFrontMatterBlock;
 import org.commonmark.ext.front.matter.YamlFrontMatterExtension;
 import org.commonmark.ext.front.matter.YamlFrontMatterNode;
+import org.commonmark.node.AbstractVisitor;
 import org.commonmark.node.BlockQuote;
 import org.commonmark.node.BulletList;
 import org.commonmark.node.Emphasis;
 import org.commonmark.node.FencedCodeBlock;
 import org.commonmark.node.Heading;
-import org.commonmark.node.HtmlBlock;
+// import org.commonmark.node.HtmlBlock;
 import org.commonmark.node.Image;
 import org.commonmark.node.Link;
 import org.commonmark.node.ListItem;
@@ -40,6 +40,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.Function;
 
 /**
  * This class loads all files in a directory and reports findings to the {@link ProjectBuilder} class.
@@ -50,6 +51,31 @@ public class ProjectParser {
 
     private final Parser markdownParser = Parser.builder().extensions(
             Collections.singletonList(YamlFrontMatterExtension.create())).build();
+    
+    /**
+     * Helper class to hold file metadata
+     */
+    private static class FileMetadata{
+        final LocalDateTime created;
+        final LocalDateTime lastUpdate;
+        final long size;
+
+        FileMetadata(LocalDateTime created, LocalDateTime lastUpdate, long size) {
+            this.created = created;
+            this.lastUpdate = lastUpdate;
+            this.size = size;
+        }
+    }
+    private FileMetadata extractFileMetadata(File file) throws IOException {
+        BasicFileAttributes attr = Files.readAttributes(file.toPath(), BasicFileAttributes.class);
+        LocalDateTime created = LocalDateTime.ofInstant(
+                attr.creationTime().toInstant(), 
+                java.time.ZoneId.systemDefault());
+        LocalDateTime lastUpdate = LocalDateTime.ofInstant(
+                attr.lastModifiedTime().toInstant(),
+                java.time.ZoneId.systemDefault());
+        return new FileMetadata(created, lastUpdate, attr.size());
+    }
 
     /**
      * loading a whole directory as a project
@@ -60,10 +86,8 @@ public class ProjectParser {
      */
     public Project loadProject(File dir) throws IOException, ProjectFormatException {
         if (!(dir.exists() && dir.isDirectory())) throw new IOException("Project directory not found: " + dir);
-        BasicFileAttributes attr = Files.readAttributes(dir.toPath(), BasicFileAttributes.class);
-        LocalDateTime folderCreated = new WebGen().getDateTime(attr.creationTime());
-        LocalDateTime folderLastUpdate = new WebGen().getDateTime(attr.lastModifiedTime());
-        ProjectBuilder builder = new ProjectBuilder(dir.getName(), folderCreated, folderLastUpdate);
+        FileMetadata metadata = extractFileMetadata(dir);
+        ProjectBuilder builder = new ProjectBuilder(dir.getName(), metadata.created, metadata.lastUpdate);
         processProject(builder, dir);
         return builder.buildProject();
     }
@@ -91,11 +115,8 @@ public class ProjectParser {
     private void processDirectory(@NonNull ProjectBuilder builder, @NonNull File dir) throws IOException, ProjectFormatException {
         //skip directories starting with _
         if (dir.getName().startsWith("_")) return;
-
-        BasicFileAttributes attr = Files.readAttributes(dir.toPath(), BasicFileAttributes.class);
-        LocalDateTime folderCreated = new WebGen().getDateTime(attr.creationTime());
-        LocalDateTime folderLastUpdate = new WebGen().getDateTime(attr.lastModifiedTime());
-        builder.openDirectory(dir.getName(), folderCreated, folderLastUpdate);
+        FileMetadata metadata = extractFileMetadata(dir);
+        builder.openDirectory(dir.getName(), metadata.created, metadata.lastUpdate);
         File[] files = dir.listFiles();
         if (files != null) {
             for (File file : files) {
@@ -112,17 +133,18 @@ public class ProjectParser {
      * check for supported file types and load the files
      */
     private void processFile(@NonNull ProjectBuilder builder, @NonNull File file) throws IOException, ProjectFormatException {
-        if (file.getName().toLowerCase().endsWith(".md"))
+        String filename = file.getName().toLowerCase();
+        if (filename.endsWith(".md"))
             loadMarkdown(builder, file);
-        if (file.getName().toLowerCase().endsWith(".txt"))
+        if (filename.endsWith(".txt"))
             loadTextfile(builder, file);
-        if (file.getName().toLowerCase().endsWith(".jpg") || file.getName().toLowerCase().endsWith(".png"))
-            loadImage(builder, file);
-        if (file.getName().toLowerCase().endsWith(".mp4") || file.getName().toLowerCase().endsWith(".mpg"))
-            loadVideo(builder, file);
-        if (file.getName().toLowerCase().endsWith(".youtube"))
+        if (filename.endsWith(".jpg") || filename.endsWith(".png"))
+            loadMediaFile(builder, file, this::notifyImage);
+        if (filename.endsWith(".mp4") || filename.endsWith(".mpg"))
+            loadMediaFile(builder, file, this::notifyVideo);
+        if (filename.endsWith(".youtube"))
             loadYoutubeVideo(builder, file);
-        if (file.getName().toLowerCase().endsWith(".yml"))
+        if (filename.endsWith(".yml"))
             loadMetadataFile(builder, file);
     }
 
@@ -196,11 +218,9 @@ public class ProjectParser {
             Node document = this.markdownParser.parseReader(fr);
             Map<String, String> metadata = loadMetadata(document);
             List<FormattedTextDocument.Paragraph> text = parseParagraphList(document.getFirstChild());
-            BasicFileAttributes attr = Files.readAttributes(file.toPath(), BasicFileAttributes.class);
-            LocalDateTime fileCreated = new WebGen().getDateTime(attr.creationTime());
-            LocalDateTime fileLastUpdate = new WebGen().getDateTime(attr.lastModifiedTime());
-            long fileSize = attr.size();
-            builder.foundTextDocument(text, metadata, fileCreated, fileLastUpdate, fileSize);
+            FileMetadata fileMetadata = extractFileMetadata(file);
+            builder.foundTextDocument(text, metadata, 
+                    fileMetadata.created, fileMetadata.lastUpdate, fileMetadata.size);
         }
     }
 
@@ -233,101 +253,164 @@ public class ProjectParser {
                 paragraphs.add(new FormattedTextDocument.TextParagraph(
                         new FormattedTextDocument.PlainTextFragment(paragraph.toString())));
             }
-            BasicFileAttributes attr = Files.readAttributes(file.toPath(), BasicFileAttributes.class);
-            LocalDateTime fileCreated = new WebGen().getDateTime(attr.creationTime());
-            LocalDateTime fileLastUpdate = new WebGen().getDateTime(attr.lastModifiedTime());
-            long fileSize = attr.size();
-            builder.foundTextDocument(paragraphs, Collections.emptyMap(), fileCreated, fileLastUpdate, fileSize);
+            FileMetadata fileMetadata = extractFileMetadata(file);
+            builder.foundTextDocument(paragraphs, Collections.emptyMap(), 
+                    fileMetadata.created, fileMetadata.lastUpdate, fileMetadata.size);
         }
     }
 
+    private <T> List<T> parseNodeList(Node node, Function<List<T>, AbstractVisitor> visitorFactory) {
+        List<T> result = new ArrayList<>();
+        AbstractVisitor visitor = visitorFactory.apply(result);
+        
+        while (node != null) {
+            node.accept(visitor);
+            node = node.getNext();
+        }
+        
+        return result;
+    }
     /**
      * convert markdown to FormattedTextDocument
      */
     private List<FormattedTextDocument.Paragraph> parseParagraphList(Node node) {
-        List<FormattedTextDocument.Paragraph> result = new ArrayList<>();
-        while (node != null) {
-            parseParagraph(node).ifPresent(result::add);
-            node = node.getNext();
-        }
-        return result;
+        return parseNodeList(node, ParagraphVisitor::new);
     }
 
     /**
      * convert markdown to FormattedTextDocument
      */
     private Optional<FormattedTextDocument.Paragraph> parseParagraph(Node node) {
-        if (node instanceof YamlFrontMatterBlock) return Optional.empty();
-        if (node instanceof HtmlBlock)
-            return Optional.empty();
-        if (node instanceof Heading)
-            return Optional.of(new FormattedTextDocument.Heading(parseText(node.getFirstChild()), ((Heading) node).getLevel()));
-        if (node instanceof ThematicBreak)
-            return Optional.of(new FormattedTextDocument.HorizontalRow());
-        if (node instanceof Paragraph)
-            return Optional.of(new FormattedTextDocument.TextParagraph(
-                    parseText(node.getFirstChild())));
-        if (node instanceof BulletList)
-            return Optional.of(new FormattedTextDocument.BulletList(parseParagraphList(node.getFirstChild())));
-        if (node instanceof FencedCodeBlock)
-            return Optional.of(new FormattedTextDocument.CodeBlock(
-                    ((FencedCodeBlock) node).getLiteral(), ((FencedCodeBlock) node).getInfo()));
-        if (node instanceof BlockQuote)
-            return Optional.of(new FormattedTextDocument.BlockQuote(parseParagraphList(node.getFirstChild())));
-        if (node instanceof ListItem)
-            return parseParagraph(node.getFirstChild());
-        return Optional.empty();
+        List<FormattedTextDocument.Paragraph> result = new ArrayList<>();
+        node.accept(new ParagraphVisitor(result));
+        return result.isEmpty() ? Optional.empty() : Optional.of(result.get(0));
     }
 
     /**
      * convert markdown to FormattedTextDocument
      */
     private FormattedTextDocument.TextFragment parseText(Node node) {
-        List<FormattedTextDocument.TextFragment> result = new ArrayList<>();
-        while (node != null) {
-            if (node instanceof Text)
-                result.add(new FormattedTextDocument.PlainTextFragment(((Text) node).getLiteral()));
-            else if (node instanceof Emphasis)
-                result.add(new FormattedTextDocument.EmphasisTextFragment(parseText(node.getFirstChild())));
-            else if (node instanceof StrongEmphasis)
-                result.add(new FormattedTextDocument.StrongEmphasisTextFragment(parseText(node.getFirstChild())));
-            else if (node instanceof Image)
-                result.add(new FormattedTextDocument.InlineImage(
-                        ((Image) node).getDestination(), parseText(node.getFirstChild())));
-            else if (node instanceof Link)
-                result.add(new FormattedTextDocument.Link(
-                        ((Link) node).getDestination(), parseText(node.getFirstChild())));
-            node = node.getNext();
-        }
+        List<FormattedTextDocument.TextFragment> result = parseNodeList(node, TextVisitor::new);
         return FormattedTextDocument.TextFragmentSequence.create(result);
     }
 
     /**
+     * Visitor for paragraph-level markdown nodes
+     */
+    private class ParagraphVisitor extends AbstractVisitor {
+        private final List<FormattedTextDocument.Paragraph> result;
+
+        public ParagraphVisitor(List<FormattedTextDocument.Paragraph> result) {
+            this.result = result;
+        }
+
+        @Override
+        public void visit(Heading heading) {
+            result.add(new FormattedTextDocument.Heading(
+                parseText(heading.getFirstChild()), 
+                heading.getLevel()));
+        }
+        @Override
+        public void visit(Paragraph paragraph) {
+            result.add(new FormattedTextDocument.TextParagraph(
+                parseText(paragraph.getFirstChild())));
+        }
+        @Override
+        public void visit(ThematicBreak thematicBreak) {
+            result.add(new FormattedTextDocument.HorizontalRow());
+        }
+        @Override
+        public void visit(BulletList bulletList) {
+            result.add(new FormattedTextDocument.BulletList(
+                parseParagraphList(bulletList.getFirstChild())));
+        }
+        @Override
+        public void visit(FencedCodeBlock fencedCodeBlock) {
+            result.add(new FormattedTextDocument.CodeBlock(
+                     ((FencedCodeBlock) fencedCodeBlock).getLiteral(), ((FencedCodeBlock) fencedCodeBlock).getInfo()));
+        }
+        @Override
+        public void visit(BlockQuote blockQuote) {
+            result.add(new FormattedTextDocument.BlockQuote(
+                parseParagraphList(blockQuote.getFirstChild())));
+        }
+        @Override
+        public void visit(ListItem listItem) {
+            parseParagraph(listItem.getFirstChild()).ifPresent(result::add);
+        }
+    }
+
+    
+
+    /**
+     * Visitor for text-level markdown nodes
+     */
+    private class TextVisitor extends AbstractVisitor {
+        private final List<FormattedTextDocument.TextFragment> result;
+
+        public TextVisitor(List<FormattedTextDocument.TextFragment> result) {
+            this.result = result;
+        }
+
+        @Override
+        public void visit(Text text) {
+            result.add(new FormattedTextDocument.PlainTextFragment(text.getLiteral()));
+        }
+        @Override
+        public void visit(Emphasis emphasis) {
+            result.add(new FormattedTextDocument.EmphasisTextFragment(parseText(emphasis.getFirstChild())));
+        }
+        @Override
+        public void visit(StrongEmphasis strongEmphasis) {
+            result.add(new FormattedTextDocument.StrongEmphasisTextFragment(parseText(strongEmphasis.getFirstChild())));
+        }
+        @Override
+        public void visit(Image image) {
+            result.add(new FormattedTextDocument.InlineImage(
+                ((Image)image).getDestination(), parseText(image.getFirstChild())));
+        }
+        @Override
+        public void visit(Link link) {
+            result.add(new FormattedTextDocument.Link(
+                ((Link)link).getDestination(), parseText(link.getFirstChild())));
+        }
+    }
+
+    /**
+     * Functional interface for notifying builder about media files
+     */
+    @FunctionalInterface
+    private interface MediaNotifier {
+        void notify(ProjectBuilder builder, File file, FileMetadata metadata) 
+                throws IOException, ProjectFormatException;
+    }
+    private void loadMediaFile(@NonNull ProjectBuilder builder, File file, MediaNotifier notifier) 
+            throws IOException, ProjectFormatException {
+        assert file.exists();
+        FileMetadata metadata = extractFileMetadata(file);
+        notifier.notify(builder, file, metadata);
+    }
+
+    /**
      * identify and load metadata of image files
-     * 
      * @param builder a project builder
      * @param file a file object
+     * @param metadata file metadata
      */
-    public void loadImage(@NonNull ProjectBuilder builder, File file) throws IOException, ProjectFormatException {
+    private void notifyImage(ProjectBuilder builder, File file, FileMetadata metadata) throws IOException, ProjectFormatException {
         assert file.exists();
-        BasicFileAttributes attr = Files.readAttributes(file.toPath(), BasicFileAttributes.class);
-        LocalDateTime fileCreated = new WebGen().getDateTime(attr.creationTime());
-        LocalDateTime fileLastUpdate = new WebGen().getDateTime(attr.lastModifiedTime());
-        builder.foundImage(file, fileCreated, fileLastUpdate, attr.size());
+        builder.foundImage(file, metadata.created, metadata.lastUpdate, metadata.size);
     }
 
     /**
      * identify and load metadata of video files
-     * 
      * @param builder a project builder
      * @param file a file object
+     * @param metadata file metadata
      */
-    public void loadVideo(@NonNull ProjectBuilder builder, File file) throws IOException, ProjectFormatException {
+    private void notifyVideo(ProjectBuilder builder, File file, FileMetadata metadata) throws IOException, ProjectFormatException {
         assert file.exists();
-        BasicFileAttributes attr = Files.readAttributes(file.toPath(), BasicFileAttributes.class);
-        LocalDateTime fileCreated = new WebGen().getDateTime(attr.creationTime());
-        LocalDateTime fileLastUpdate = new WebGen().getDateTime(attr.lastModifiedTime());
-        builder.foundVideo(file, fileCreated, fileLastUpdate, attr.size());
+        builder.foundVideo(file, metadata.created, metadata.lastUpdate, metadata.size);
     }
 
     /**
@@ -336,11 +419,9 @@ public class ProjectParser {
     private void loadYoutubeVideo(ProjectBuilder builder, File file) throws IOException, ProjectFormatException {
         assert file.exists();
         Map<String, String> m = parseMetadataFile(file);
-        BasicFileAttributes attr = Files.readAttributes(file.toPath(), BasicFileAttributes.class);
-        LocalDateTime fileCreated = new WebGen().getDateTime(attr.creationTime());
-        LocalDateTime fileLastUpdate = new WebGen().getDateTime(attr.lastModifiedTime());
+        FileMetadata fileMetadata = extractFileMetadata(file);
         if (m.containsKey("id"))
-            builder.foundYoutubeVideo(m.get("id"), m, fileCreated, fileLastUpdate, attr.size());
+            builder.foundYoutubeVideo(m.get("id"), m, fileMetadata.created, fileMetadata.lastUpdate, fileMetadata.size);
         else
             System.err.println("Youtube file does not contain id: " + file);
     }
