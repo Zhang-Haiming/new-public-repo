@@ -1,13 +1,11 @@
 package edu.cmu.webgen;
 
 import edu.cmu.webgen.project.Article;
-import edu.cmu.webgen.project.FormattedTextDocument;
-import edu.cmu.webgen.project.Image;
+import edu.cmu.webgen.project.AbstractContent;
 import edu.cmu.webgen.project.Project;
 import edu.cmu.webgen.project.SubArticle;
 import edu.cmu.webgen.project.SubSubArticle;
 import edu.cmu.webgen.project.Topic;
-import edu.cmu.webgen.project.Video;
 import edu.cmu.webgen.rendering.Renderer;
 import edu.cmu.webgen.rendering.TemplateEngine;
 import java.io.File;
@@ -71,7 +69,7 @@ public class CLI {
      * @return a long corresponding the the size
      */
     public long getSize() {
-        List<Object> allContent = new ArrayList<>();
+        List<AbstractContent> allContent = new ArrayList<>();
         for (Article a : this.project.getArticles()) {
             allContent.addAll(a.getContent());
             for (SubArticle sa : a.getInnerArticles()) {
@@ -80,20 +78,11 @@ public class CLI {
                     allContent.addAll(ssa.getContent());
                 }
             }
-        }
-
-        long size = 0;
-        for (Object c : allContent) {
-            if (c instanceof FormattedTextDocument n)
-                size += n.getTextSize();
-            if (c instanceof Video n)
-                size += n.getVideoSize();
-            if (c instanceof Image n)
-                size += n.getImageSize();
-        }
-
-        return size;
-    }
+        }        
+        return allContent.stream()
+            .mapToLong(AbstractContent::getSize)
+            .sum();
+}
 
     private void cleanTargetDirectory(File targetDirectory) {
         if (targetDirectory.exists()) {

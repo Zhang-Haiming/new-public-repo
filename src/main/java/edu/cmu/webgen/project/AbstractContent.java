@@ -59,6 +59,8 @@ public abstract class AbstractContent {
         return null;
     }
 
+    public abstract long getSize();
+
     public abstract ContentFragment toContentFragment(TemplateEngine engine, String relPath) throws IOException;
 
 }

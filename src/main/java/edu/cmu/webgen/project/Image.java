@@ -12,13 +12,17 @@ public class Image extends Media {
         this.imageSize = imageSize;
     }
 
-    public long getImageSize() {
-        return this.imageSize;
-    }
+    // public long getImageSize() {
+    //     return this.imageSize;
+    // }
 
+    // @Override
+    // public int getAudioLength() {
+    //     throw new UnsupportedOperationException("Images don't have audio length");
+    // }
     @Override
-    public int getAudioLength() {
-        throw new UnsupportedOperationException("Images don't have audio length");
+    public long getSize() {
+        return this.imageSize;
     }
 
     @Override

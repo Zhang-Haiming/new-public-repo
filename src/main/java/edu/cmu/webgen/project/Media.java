@@ -10,7 +10,7 @@ import java.util.Map;
 
 public class Media extends AbstractContent {
     private final File mediaPath;
-    private int audioLength;
+    private long audioLength;
 
     Media(File mediaPath, LocalDateTime created, LocalDateTime lastUpdate) {
         super(created, lastUpdate);
@@ -25,10 +25,13 @@ public class Media extends AbstractContent {
         this.audioLength = audioLength;
     }
 
-    public int getAudioLength() {
+    // public int getAudioLength() {
+    //     return this.audioLength;
+    // }
+    @Override
+    public long getSize() {
         return this.audioLength;
     }
-
     public File getMediaPath() {
         return this.mediaPath;
     }

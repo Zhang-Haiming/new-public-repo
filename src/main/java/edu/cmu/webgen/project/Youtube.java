@@ -26,6 +26,10 @@ public class Youtube extends AbstractContent {
     public String getYoutubeId() {
         return this.youtubeId;
     }
+    @Override
+    public long getSize() {
+        throw new UnsupportedOperationException("Youtube videos don't have a size");
+    }
 
     @Override
     public ContentFragment toContentFragment(TemplateEngine engine, String relPath) throws IOException {

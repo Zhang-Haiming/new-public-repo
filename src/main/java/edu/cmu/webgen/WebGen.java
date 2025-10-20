@@ -2,16 +2,13 @@ package edu.cmu.webgen;
 
 import edu.cmu.webgen.parser.ProjectParser;
 import edu.cmu.webgen.project.Article;
-import edu.cmu.webgen.project.FormattedTextDocument;
 import edu.cmu.webgen.project.Project;
 import edu.cmu.webgen.project.SubArticle;
 import edu.cmu.webgen.project.SubSubArticle;
 import edu.cmu.webgen.project.Topic;
 
-import org.apache.commons.text.StringEscapeUtils;
 import org.natty.Parser;
 
-import java.io.StringWriter;
 import java.nio.file.attribute.FileTime;
 import java.text.ParseException;
 import java.time.LocalDate;
@@ -114,71 +111,6 @@ public class WebGen {
      */
     public LocalDateTime getDateTime(FileTime fileTime) {
         return LocalDateTime.ofInstant(fileTime.toInstant(), ZoneId.systemDefault());
-    }
-
-    public int previewText(FormattedTextDocument.FormattedTextContent content, StringWriter w, int maxLength) {
-        if (content instanceof FormattedTextDocument.TextFragmentSequence node) {
-            for (FormattedTextDocument.TextFragment t : node.getFragments()) {
-                if (maxLength > 0) {
-                    maxLength = previewText(t, w, maxLength);
-                }
-            }
-            return maxLength;
-        }
-        if (content instanceof FormattedTextDocument.Heading node) {
-            int l = node.level() + 1;
-            w.write("<p><strong class=\"previewh" + l + "\">");
-            maxLength = previewText(node.text(), w, maxLength);
-            w.write("</strong></p>");
-            return maxLength;
-        }
-        if (content instanceof FormattedTextDocument.TextParagraph node) {
-            w.write("<p>");
-            maxLength = previewText(node.text(), w, maxLength);
-            w.write("</p>");
-            return maxLength;
-        }
-        if (content instanceof FormattedTextDocument.BulletList node) {
-            w.write("<p><ul>");
-            for (FormattedTextDocument.Paragraph t : node.items()) {
-                if (maxLength > 0) {
-                    w.write("<li>");
-                    maxLength = previewText(t, w, maxLength);
-                    w.write("</li>");
-                }
-            }
-            w.write("</ul></p>");
-            return maxLength;
-        }
-        if (content instanceof FormattedTextDocument.BlockQuote node) {
-            w.write("<blockquote>");
-            for (FormattedTextDocument.Paragraph p : node.paragraphs()) {
-                maxLength = previewText(p, w, maxLength);
-            }
-            w.write("</blockquote>");
-            return maxLength;
-        }
-        if (content instanceof FormattedTextDocument.PlainTextFragment node) {
-            if (node.text().length() > maxLength) {
-                w.write(StringEscapeUtils.escapeHtml4(node.text().substring(0, maxLength)));
-                w.write("...");
-                return 0;
-            }
-            w.write(StringEscapeUtils.escapeHtml4(node.text()));
-            return maxLength - node.text().length();
-        }
-        if (content instanceof FormattedTextDocument.InlineImage) {
-            return maxLength;
-        }
-        if (content instanceof FormattedTextDocument.DecoratedTextFragment node) {
-            w.write(node.getHtmlOpen());
-            maxLength = previewText(node.getText(), w, maxLength);
-            w.write(node.getHtmlClose());
-            return maxLength;
-        }
-
-        throw new UnsupportedOperationException("Preview for content %s of type %s not supported".formatted(
-                content, content.getClass().getSimpleName()));
     }
 
     public List<Object> findArticlesByTopic(Project project, Topic topic) {

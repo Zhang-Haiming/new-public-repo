@@ -17,12 +17,12 @@ public class ImageTest {
     @Test
     public void testGetImageSize() {
         Image image = new Image(mediaPath, created, lastUpdate, 10L);
-        assertEquals(10L, image.getImageSize());
+        assertEquals(10L, image.getSize());
     }
 
     @Test
     public void testAudioLength() {
         Image image = new Image(mediaPath, created, lastUpdate, 10L);
-        assertThrows(UnsupportedOperationException.class, () -> image.getAudioLength());
+        assertThrows(UnsupportedOperationException.class, () -> image.getSize());
     }
 }

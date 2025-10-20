@@ -1,6 +1,5 @@
 package edu.cmu.webgen.project;
 
-import edu.cmu.webgen.WebGen;
 import edu.cmu.webgen.rendering.TemplateEngine;
 import edu.cmu.webgen.rendering.data.ContentFragment;
 
@@ -43,7 +42,8 @@ public class FormattedTextDocument extends AbstractContent {
     public int toPreview(StringWriter w, int maxLength) {
         for (Paragraph p : this.paragraphs) {
             if (maxLength > 0)
-                maxLength = new WebGen().previewText(p, w, maxLength);
+                // maxLength = new WebGen().previewText(p, w, maxLength);
+                maxLength = p.toPreview(w, maxLength);
         }
         return maxLength;
     }
@@ -80,7 +80,11 @@ public class FormattedTextDocument extends AbstractContent {
         return null;
     }
 
-    public long getTextSize() {
+    // public long getTextSize() {
+    //     return this.textSize;
+    // }
+    @Override
+    public long getSize() {
         return this.textSize;
     }
 
@@ -93,6 +97,7 @@ public class FormattedTextDocument extends AbstractContent {
     
     public interface FormattedTextContent {
         void toHtml(StringWriter w);
+        int toPreview(StringWriter w, int maxLength);
 
     }
 
@@ -133,6 +138,16 @@ public class FormattedTextDocument extends AbstractContent {
             return b.toString();
         }
 
+        @Override
+        public int toPreview(StringWriter w, int maxLength) {
+            for (TextFragment t : fragments) {
+                if (maxLength > 0) {
+                    maxLength = t.toPreview(w, maxLength);
+                }
+            }
+            return maxLength;
+        }
+
         public List<TextFragment> getFragments() {
             return this.fragments;
         }
@@ -148,6 +163,14 @@ public class FormattedTextDocument extends AbstractContent {
             w.write("</h" + l + ">");
         }
 
+        @Override
+        public int toPreview(StringWriter w, int maxLength) {
+            int l = this.level + 1;
+            w.write("<p><strong class=\"previewh" + l + "\">");
+            maxLength = this.text.toPreview(w, maxLength);
+            w.write("</strong></p>");
+            return maxLength;
+        }
 
     }
 
@@ -158,6 +181,13 @@ public class FormattedTextDocument extends AbstractContent {
             this.text.toHtml(w);
             w.write("</p>");
         }
+        @Override
+        public int toPreview(StringWriter w, int maxLength) {
+            w.write("<p>");
+            maxLength = this.text.toPreview(w, maxLength);
+            w.write("</p>");
+            return maxLength;
+        }
     }
 
     public static record HorizontalRow() implements Paragraph {
@@ -166,6 +196,7 @@ public class FormattedTextDocument extends AbstractContent {
             w.write("<hr />");
         }
 
+        @Override
         public int toPreview(StringWriter w, int maxLength) {
             return maxLength;
         }
@@ -182,6 +213,19 @@ public class FormattedTextDocument extends AbstractContent {
             }
             w.write("</ul></p>");
         }
+        @Override
+        public int toPreview(StringWriter w, int maxLength) {
+            w.write("<p><ul>");
+            for (Paragraph t : this.items) {
+                if (maxLength > 0) {
+                    w.write("<li>");
+                    maxLength = t.toPreview(w, maxLength);
+                    w.write("</li>");
+                }
+            }
+            w.write("</ul></p>");
+            return maxLength;
+        }
     }
 
     public static record BlockQuote(List<Paragraph> paragraphs) implements Paragraph {
@@ -192,6 +236,15 @@ public class FormattedTextDocument extends AbstractContent {
                 p.toHtml(w);
             }
             w.write("</blockquote>");
+        }
+        @Override
+        public int toPreview(StringWriter w, int maxLength) {
+            w.write("<blockquote>");
+            for (Paragraph p : this.paragraphs) {
+                maxLength = p.toPreview(w, maxLength);
+            }
+            w.write("</blockquote>");
+            return maxLength;
         }
     }
 
@@ -204,6 +257,7 @@ public class FormattedTextDocument extends AbstractContent {
             w.write("</pre>");
         }
 
+        @Override
         public int toPreview(StringWriter w, int maxLength) {
             return maxLength;
         }
@@ -219,6 +273,16 @@ public class FormattedTextDocument extends AbstractContent {
         public String toPlainText() {
             return this.text;
         }
+        @Override
+        public int toPreview(StringWriter w, int maxLength) {
+            if (this.text.length() > maxLength) {
+                w.write(StringEscapeUtils.escapeHtml4(this.text.substring(0, maxLength)));
+                w.write("...");
+                return 0;
+            }
+            w.write(StringEscapeUtils.escapeHtml4(this.text));
+            return maxLength - this.text.length();
+        }
     }
 
     public static record InlineImage(String source, TextFragment text) implements TextFragment {
@@ -232,6 +296,10 @@ public class FormattedTextDocument extends AbstractContent {
         @Override
         public String toPlainText() {
             return "";
+        }
+        @Override
+        public int toPreview(StringWriter w, int maxLength) {
+            return maxLength;  // Images don't contribute to preview
         }
     }
 
@@ -257,6 +325,13 @@ public class FormattedTextDocument extends AbstractContent {
         @Override
         public String toPlainText() {
             return this.text.toPlainText();
+        }
+        @Override
+        public int toPreview(StringWriter w, int maxLength) {
+            w.write(this.htmlOpen);
+            maxLength = this.text.toPreview(w, maxLength);
+            w.write(this.htmlClose);
+            return maxLength;
         }
 
         public String getHtmlClose() {
