@@ -17,7 +17,7 @@ public class Event implements Comparable<Event> {
     @NonNull private final String directoryName;
     @NonNull private final Set<Topic> topics = new HashSet<>();
     private final List<Object> innerEvents;
-    private final List<SubArticle> innerArticles;
+    private final List<Article> innerArticles;
     private final LocalDateTime lastUpdate;
     private final LocalDateTime created;
     @Nullable private String id = null;
@@ -25,7 +25,7 @@ public class Event implements Comparable<Event> {
     private LocalDateTime startDate;
     private LocalDateTime endDate;
 
-    public Event(List<AbstractContent> content, List<Object> subEvents, @NonNull List<SubArticle> subArticles,
+    public Event(List<AbstractContent> content, List<Object> subEvents, @NonNull List<Article> subArticles,
           @NonNull String directoryName, @NonNull LocalDateTime created, @NonNull LocalDateTime lastUpdate,
           @NonNull LocalDateTime startDate, @NonNull LocalDateTime endDate) {
         this.content = new ArrayList<>(content);
@@ -127,7 +127,7 @@ public class Event implements Comparable<Event> {
         return this.innerEvents;
     }
 
-    public List<SubArticle> getInnerArticles() {
+    public List<Article> getInnerArticles() {
         return this.innerArticles;
     }
 }

@@ -67,21 +67,13 @@ public class Project {
     public @NonNull Set<Topic> getTopics(Object projectPart) {
         Set<Topic> result = new HashSet<>();
         result.addAll(this.topics.getOrDefault(projectPart, new HashSet<>()));
-        if (projectPart instanceof Article a) {
-            for (Object o : a.getInnerArticles())
-                result.addAll(getTopics(o));
-            for (Object o : a.getContent())
-                result.addAll(getTopics(o));
-        }
-        if (projectPart instanceof SubArticle a) {
-            for (Object o : a.getInnerArticles())
-                result.addAll(getTopics(o));
-            for (Object o : a.getContent())
-                result.addAll(getTopics(o));
-        }
-        if (projectPart instanceof SubSubArticle a) {
-            for (Object o : a.getContent())
-                result.addAll(getTopics(o));
+        if(projectPart instanceof Article article) {
+            for(Article child: article.getInnerArticles()) {
+                result.addAll(getTopics(child));
+            }
+            for(Object content: article.getContent()) {
+                result.addAll(getTopics(content));
+            }
         }
 
         return result;
@@ -103,20 +95,23 @@ public class Project {
     }
 
     public long getTotalSize() {
-        List<AbstractContent> allContent = new ArrayList<>();
-        for (Article a : this.articles) {
-            allContent.addAll(a.getContent());
-            for (SubArticle sa : a.getInnerArticles()) {
-                allContent.addAll(sa.getContent());
-                for (SubSubArticle ssa : sa.getInnerArticles()) {
-                    allContent.addAll(ssa.getContent());
-                }
-            }
-        }        
-        return allContent.stream()
-            .mapToLong(AbstractContent::getSize)
-            .sum();
-    }   
+        long totalSize = 0;
+        for (Article article : this.articles) {
+            totalSize += calculateArticleSizeRecursive(article);
+        }
+        return totalSize;        
+        
+    }
+       
+    private long calculateArticleSizeRecursive(Article article) {
+        long size = article.getContent().stream()
+                .mapToLong(AbstractContent::getSize)
+                .sum();
+        for (Article child : article.getInnerArticles()) {
+            size += calculateArticleSizeRecursive(child);
+        }
+        return size;
+    }
 
     public boolean isArticlePinned(Article article) {
         return article.getMetadata().has("pinned") && !article.getMetadata().get("pinned").equals("false");

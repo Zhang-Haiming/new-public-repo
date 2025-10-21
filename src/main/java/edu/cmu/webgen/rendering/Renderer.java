@@ -130,11 +130,10 @@ public class Renderer {
 
         //render each entry
         renderArticles(project);
-//        renderEvents(project);
 
         //lists
         renderArticleList(project);
-//        renderEventList(project);
+
         renderTopicList(project);
 
         //each topic has a page
@@ -184,13 +183,14 @@ public class Renderer {
 
     public void renderArticles(Project project) throws IOException {
         for (Article article : project.getArticles()) {
-            renderArticle(project, article);
-            for (SubArticle subArticle : article.getInnerArticles()) {
-                renderSubArticle(project, subArticle);
-                for (SubSubArticle subSubArticle : subArticle.getInnerArticles()) {
-                    renderSubSubArticle(project, subSubArticle);
-                }
-            }
+            renderArticleRecursive(project, article);
+        }
+    }
+
+    private void renderArticleRecursive(Project project, Article article) throws IOException {
+        renderArticle(project, article);
+        for (Article child : article.getInnerArticles()) {
+            renderArticleRecursive(project, child);
         }
     }
 
@@ -213,79 +213,24 @@ public class Renderer {
         this.templateEngine.render(page.getTemplate(), page, targetFile);
     }
 
-    public void renderSubArticle(Project project, SubArticle subArticle) throws IOException {
-        String pagePath = getSubArticlePath(subArticle);
-        String relPath = getRelPath(pagePath);
-        SiteData siteData = genSiteData(project, relPath);
-        List<SiteLink> topics = project.getTopics(subArticle)
-                .stream().sorted().map(this::mkTopicLink).collect(Collectors.toList());
-        List<SiteLink> breadcrumbs = getBreadcrumbs(subArticle);
-
-        ArticlePage page = new ArticlePage(
-                siteData,
-                subArticle.getTitle(),
-                breadcrumbs,
-                WebGen.readableFormat(subArticle.getPublishedDate()),
-                topics,
-                getSubArticleContent(subArticle, relPath));
-        File targetFile = new File(new File(this.targetDirectory, pagePath), "index.html");
-        this.templateEngine.render(page.getTemplate(), page, targetFile);
-    }
-
-    public void renderSubSubArticle(Project project, SubSubArticle subSubArticle) throws IOException {
-        String pagePath = getSubSubArticlePath(subSubArticle);
-        String relPath = getRelPath(pagePath);
-        SiteData siteData = genSiteData(project, relPath);
-        List<SiteLink> topics = project.getTopics(subSubArticle)
-                .stream().sorted().map(this::mkTopicLink).collect(Collectors.toList());
-        List<SiteLink> breadcrumbs = getBreadcrumbs(subSubArticle);
-
-        ArticlePage page = new ArticlePage(
-                siteData,
-                subSubArticle.getTitle(),
-                breadcrumbs,
-                WebGen.readableFormat(subSubArticle.getPublishedDate()),
-                topics,
-                getSubSubArticleContent(subSubArticle, relPath));
-        File targetFile = new File(new File(this.targetDirectory, pagePath), "index.html");
-        this.templateEngine.render(page.getTemplate(), page, targetFile);
-    }
-
     /**
      * links for breadcrumb navigation for Entries
      *
      * @param article target entry
      * @return list of links to this and its parent entries
      */
-    public List<SiteLink> getBreadcrumbs(SubArticle article) {
-        List<SiteLink> result = new ArrayList<>();
-        result.add(new SiteLink(getSubArticleURL(article), article.getTitle(), true));
-
-        Article parent = article.getParent();
-        if (parent != null)
-            result.add(0, new SiteLink(getArticleURL(parent), parent.getTitle(), true));
-        return result;
-    }
-
-    public List<SiteLink> getBreadcrumbs(SubSubArticle article) {
-        List<SiteLink> result = new ArrayList<>();
-        result.add(new SiteLink(getSubSubArticleURL(article), article.getTitle(), true));
-
-        SubArticle parent = article.getParent();
-        if (parent != null) {
-            result.add(0, new SiteLink(getSubArticleURL(parent), parent.getTitle(), true));
-            Article parentParent = parent.getParent();
-            if (parentParent != null) {
-                result.add(0, new SiteLink(getArticleURL(parentParent), parentParent.getTitle(), true));
-            }
-        }
-        return result;
-    }
-
     public List<SiteLink> getBreadcrumbs(Article article) {
-        return Collections.singletonList(new SiteLink(getArticleURL(article), article.getTitle(), true));
-
+        List<SiteLink> result = new ArrayList<>();
+        // add all ancestors
+        for(Article ancestor:article.getAncestors()){
+            result.add(new SiteLink(getArticleURL(ancestor), ancestor.getTitle(), true));
+        }
+        // add current article
+        result.add(new SiteLink(getArticleURL(article), article.getTitle(), true));
+        return result;
     }
+
+    
 
     public void renderEvent(Project project, Event event) throws IOException {
         throw new UnsupportedOperationException("Not yet implemented.");
@@ -307,21 +252,6 @@ public class Renderer {
                 this.siteGenerationTime);
     }
 
-    public ContentFragment getSubArticleFragment(SubArticle subarticle, String relPath) throws IOException {
-        StringWriter w = new StringWriter();
-        this.templateEngine.render("article-preview",
-                renderSubArticlePreview(subarticle, relPath, "Read on: "), w);
-        return new ContentFragment(subarticle.getTitle(), w.toString());
-    }
-
-
-    public ContentFragment getSubSubArticleFragment(SubSubArticle subsubarticle, String relPath) throws IOException {
-        StringWriter w = new StringWriter();
-        this.templateEngine.render("article-preview",
-                renderSubSubArticlePreview(subsubarticle, relPath, "Read on: "), w);
-        return new ContentFragment(subsubarticle.getTitle(), w.toString());
-    }
-
     /**
      * creates a ContentFragment object that contains HTML output for a node.
      * The HTML output for a node is created by invoking the rendering engine on a template
@@ -339,27 +269,22 @@ public class Renderer {
      */
     public List<ContentFragment> getArticleContent(Article story, String relPath) throws IOException {
         List<ContentFragment> result = new ArrayList<>();
-        for (AbstractContent n : story.getContent())
-            result.add(getStoryContentFragment(n, relPath));
-        for (SubArticle n : story.getInnerArticles())
-            result.add(getSubArticleFragment(n, relPath));
+        for (AbstractContent content : story.getContent())
+            result.add(getStoryContentFragment(content, relPath));
+        for (Article child : story.getInnerArticles())
+            result.add(getArticleFragment(child, relPath));
         return result;
     }
 
-    public List<ContentFragment> getSubArticleContent(SubArticle story, String relPath) throws IOException {
-        List<ContentFragment> result = new ArrayList<>();
-        for (AbstractContent n : story.getContent())
-            result.add(getStoryContentFragment(n, relPath));
-        for (SubSubArticle n : story.getInnerArticles())
-            result.add(getSubSubArticleFragment(n, relPath));
-        return result;
-    }
-
-    public List<ContentFragment> getSubSubArticleContent(SubSubArticle story, String relPath) throws IOException {
-        List<ContentFragment> result = new ArrayList<>();
-        for (AbstractContent n : story.getContent())
-            result.add(getStoryContentFragment(n, relPath));
-        return result;
+    /**
+     * Create a preview fragment for a child article.
+     * This replaces getSubArticleFragment, getSubSubArticleFragment.
+     */
+    public ContentFragment getArticleFragment(Article article, String relPath) throws IOException {
+        StringWriter w = new StringWriter();
+        this.templateEngine.render("article-preview",
+                renderArticlePreview(article, relPath, "Read on: "), w);
+        return new ContentFragment(article.getTitle(), w.toString());
     }
 
     public void renderTopics(Project project) throws IOException {
@@ -369,40 +294,37 @@ public class Renderer {
     }
 
 
-    public List<Object> findAllArticles(Project project) {
-        List<Object> result = new ArrayList<>();
+    public List<Article> findAllArticles(Project project) {
+        List<Article> result = new ArrayList<>();
         
         for (Article a : getSortedArticles(project)) {
-            result.add(a);
-            for (SubArticle sa : a.getInnerArticles()) {
-                result.add(sa);
-                for (SubSubArticle ssa : sa.getInnerArticles()) {
-                    result.add(ssa);
-                }
-            }
+            collectArticlesRecursive(a, result);
         }
         return result;
     }
 
+    /**
+     * Recursively collect all articles in tree.
+     */
+    private void collectArticlesRecursive(Article article, List<Article> accumulator) {
+        accumulator.add(article);
+        for (Article child : article.getInnerArticles()) {
+            collectArticlesRecursive(child, accumulator);
+        }
+    }
 
     public void renderTopic(Project project, Topic topic) throws IOException {
-        List<Object> allArticles = new WebGen().findArticlesByTopic(project, topic);
-        List<List<Object>> articlePages = WebGen.paginateContent(allArticles.iterator(), 5);
+        List<Article> allArticles = findArticlesByTopic(project, topic);
+        List<List<Article>> articlePages = WebGen.paginateContent(allArticles.iterator(), 5);
         String basePath = getTopicPath(topic);
         for (int pageIdx = 0; pageIdx < articlePages.size(); pageIdx++) {
             String pagePath = createPaginatedPath(basePath, pageIdx);
-
-            List<Object> article = articlePages.get(pageIdx);
+            List<Article> articles = articlePages.get(pageIdx);
             Pagination pagination = createPagination(pageIdx, articlePages.size(), (i) -> createURL(createPaginatedPath(basePath, i)));
             List<ArticlePreview> previews = new ArrayList<>();
             String relPath = getRelPath(pagePath);
-            for (Object s : article) {
-                if (s instanceof Article a)
-                    previews.add(renderArticlePreview(a, relPath, ""));
-                if (s instanceof SubArticle sa)
-                    previews.add(renderSubArticlePreview(sa, relPath, ""));
-                if (s instanceof SubSubArticle ssa)
-                    previews.add(renderSubSubArticlePreview(ssa, relPath, ""));
+            for (Article article : articles) {
+                previews.add(renderArticlePreview(article, relPath, ""));
             }
 
             ArticleListPage page = new ArticleListPage(
@@ -416,6 +338,30 @@ public class Renderer {
         }
     }
 
+    /**
+     * Find all articles for a specific topic at all nesting levels.
+     */
+    private List<Article> findArticlesByTopic(Project project, Topic topic) {
+        List<Article> result = new ArrayList<>();
+        for (Article rootArticle : project.getArticles()) {
+            collectArticlesByTopicRecursive(project, rootArticle, topic, result);
+        }
+        return result;
+    }
+
+    /**
+     * Recursively collect articles matching a topic.
+     */
+    private void collectArticlesByTopicRecursive(Project project, Article article, 
+                                                 Topic topic, List<Article> accumulator) {
+        if (project.getTopics(article).contains(topic)) {
+            accumulator.add(article);
+        }
+        for (Article child : article.getInnerArticles()) {
+            collectArticlesByTopicRecursive(project, child, topic, accumulator);
+        }
+    }
+
     public boolean hasPagination(Pagination pagination) {
         if (pagination.getPages().size() == 0) return false;
         if (pagination.getPages().size() > 1) return true;
@@ -426,15 +372,20 @@ public class Renderer {
         Set<Topic> topics = new HashSet<>();
         
         for (Article a : getSortedArticles(project)) {
-            topics.addAll(project.getTopics(a));
-            for (SubArticle sa : a.getInnerArticles()) {
-                topics.addAll(project.getTopics(sa));
-                for (SubSubArticle ssa : sa.getInnerArticles()) {
-                    topics.addAll(project.getTopics(ssa));
-                }
-            }
+            collectTopicsRecursive(project,a,topics);
         }
         return topics;
+    }
+
+    /**
+     * Recursively collect all topics from an article and its descendants.
+     */
+    private void collectTopicsRecursive(Project project, Article article, Set<Topic> accumulator) {
+        accumulator.addAll(project.getTopics(article));
+        
+        for (Article child : article.getInnerArticles()) {
+            collectTopicsRecursive(project, child, accumulator);
+        }
     }
 
     public void renderTopicList(Project project) throws IOException {
@@ -464,16 +415,8 @@ public class Renderer {
         return TOPICS_ADDRESS + topic.getId() + "/";
     }
 
-    public SiteURL getArticleURL(Article entry) {
-        return createURL(getArticlePath(entry));
-    }
-
-    public SiteURL getSubArticleURL(SubArticle entry) {
-        return createURL(getSubArticlePath(entry));
-    }
-
-    public SiteURL getSubSubArticleURL(SubSubArticle entry) {
-        return createURL(getSubSubArticlePath(entry));
+    public SiteURL getArticleURL(Article article) {
+        return createURL(getArticlePath(article));
     }
 
     /**
@@ -482,50 +425,21 @@ public class Renderer {
      * the article
      */
     public String getArticlePath(Article article) {
-        String path = article.getId() + "/";
-        return ENTRY_ADDRESS + path;
+        return ENTRY_ADDRESS + article.getFullPath();
     }
-
-    public String getSubArticlePath(SubArticle article) {
-        String path = article.getId() + "/";
-        Article parent = article.getParent();
-        if (parent != null) {
-            path = parent.getId() + "/" + path;
-        }
-        return ENTRY_ADDRESS + path;
-    }
-
-    public String getSubSubArticlePath(SubSubArticle article) {
-        String path = article.getId() + "/";
-        SubArticle parent = article.getParent();
-        if (parent != null) {
-            path = parent.getId() + "/" + path;
-            Article parentParent = parent.getParent();
-            if (parentParent != null) {
-                path = parentParent.getId() + "/" + path;
-            }
-        }
-        return ENTRY_ADDRESS + path;
-    }
-
 
     public void renderArticleList(Project project) throws IOException {
-        List<List<Object>> articlePages = WebGen.paginateContent(findAllArticles(project).iterator(), 5);
+        List<List<Article>> articlePages = WebGen.paginateContent(findAllArticles(project).iterator(), 5);
         String basePath = ARTICLES_ADDRESS;
         for (int pageIdx = 0; pageIdx < articlePages.size(); pageIdx++) {
             String pagePath = createPaginatedPath(basePath, pageIdx);
-            List<Object> articles = articlePages.get(pageIdx);
+            List<Article> articles = articlePages.get(pageIdx);
             Pagination pagination = createPagination(pageIdx, articlePages.size(),
                     (i) -> createURL(createPaginatedPath(basePath, i)));
             List<ArticlePreview> previews = new ArrayList<>();
             String relPath = getRelPath(pagePath);
-            for (Object s : articles) {
-                if (s instanceof Article a)
-                    previews.add(renderArticlePreview(a, relPath, ""));
-                if (s instanceof SubArticle sa)
-                    previews.add(renderSubArticlePreview(sa, relPath, ""));
-                if (s instanceof SubSubArticle ssa)
-                    previews.add(renderSubSubArticlePreview(ssa, relPath, ""));
+            for (Article article : articles) {
+                previews.add(renderArticlePreview(article, relPath, ""));
             }
 
             ArticleListPage page = new ArticleListPage(
@@ -555,7 +469,6 @@ public class Renderer {
             this.headers = new ArrayList<>(3);
             this.headers.add(this.HOME_LINK);
             this.headers.add(this.ARTICLES_LINK);
-//            headers.add(EVENTS_LINK);
             if (!findAllTopics(project).isEmpty())
                 this.headers.add(this.TOPICS_LINK);
         }
@@ -574,10 +487,8 @@ public class Renderer {
         StringWriter w = new StringWriter();
         int previewLength = 200;
         for (AbstractContent c : article.getContent()) {
-            if (c instanceof FormattedTextDocument) {
-                if (previewLength > 0) {
-                    previewLength = ((FormattedTextDocument) c).toPreview(w, previewLength);
-                }
+            if (c instanceof FormattedTextDocument&& previewLength > 0) {
+                previewLength = ((FormattedTextDocument) c).toPreview(w, previewLength);
             }
         }
 
@@ -588,46 +499,6 @@ public class Renderer {
                 w.toString(),
                 relPath,
                 getArticleURL(article));
-    }
-
-    public ArticlePreview renderSubArticlePreview(SubArticle article, String relPath, String prefix) {
-        StringWriter w = new StringWriter();
-        int previewLength = 200;
-        for (AbstractContent c : article.getContent()) {
-            if (c instanceof FormattedTextDocument) {
-                if (previewLength > 0) {
-                    previewLength = ((FormattedTextDocument) c).toPreview(w, previewLength);
-                }
-            }
-        }
-
-        return new ArticlePreview(
-                prefix,
-                article.getTitle(),
-                WebGen.readableFormat(article.getPublishedDate()),
-                w.toString(),
-                relPath,
-                getSubArticleURL(article));
-    }
-
-    public ArticlePreview renderSubSubArticlePreview(SubSubArticle article, String relPath, String prefix) {
-        StringWriter w = new StringWriter();
-        int previewLength = 200;
-        for (AbstractContent c : article.getContent()) {
-            if (c instanceof FormattedTextDocument) {
-                if (previewLength > 0) {
-                    previewLength = ((FormattedTextDocument) c).toPreview(w, previewLength);
-                }
-            }
-        }
-
-        return new ArticlePreview(
-                prefix,
-                article.getTitle(),
-                WebGen.readableFormat(article.getPublishedDate()),
-                w.toString(),
-                relPath,
-                getSubSubArticleURL(article));
     }
 
     /**

@@ -3,8 +3,6 @@ package edu.cmu.webgen;
 import edu.cmu.webgen.parser.ProjectParser;
 import edu.cmu.webgen.project.Article;
 import edu.cmu.webgen.project.Project;
-import edu.cmu.webgen.project.SubArticle;
-import edu.cmu.webgen.project.SubSubArticle;
 import edu.cmu.webgen.project.Topic;
 
 import org.natty.Parser;
@@ -102,20 +100,20 @@ public class WebGen {
         return result;
     }
 
-    public List<Object> findArticlesByTopic(Project project, Topic topic) {
-        List<Object> result = new ArrayList<>();
-        for (Article a : project.getArticles()) {
-            if (project.getTopics(a).contains(topic))
-                result.add(a);
-            for (SubArticle sa : a.getInnerArticles()) {
-                if (project.getTopics(sa).contains(topic))
-                    result.add(sa);
-                for (SubSubArticle ssa : sa.getInnerArticles()) {
-                    if (project.getTopics(ssa).contains(topic))
-                        result.add(ssa);
-                }
-            }
+    public List<Article> findArticlesByTopic(Project project, Topic topic) {
+        List<Article> result = new ArrayList<>();
+        for (Article rootArticle : project.getArticles()) {
+            findArticlesByTopicRecursive(project, rootArticle, topic, result);
         }
         return result;
+    }
+
+    private void findArticlesByTopicRecursive(Project project, Article article, Topic topic, List<Article> result) {
+        if (project.getTopics(article).contains(topic)) {
+            result.add(article);
+        }
+        for (Article child : article.getInnerArticles()) {
+            findArticlesByTopicRecursive(project, child, topic, result);
+        }
     }
 }

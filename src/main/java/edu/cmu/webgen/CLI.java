@@ -2,8 +2,8 @@ package edu.cmu.webgen;
 
 import edu.cmu.webgen.project.Article;
 import edu.cmu.webgen.project.Project;
-import edu.cmu.webgen.project.SubArticle;
-import edu.cmu.webgen.project.SubSubArticle;
+// import edu.cmu.webgen.project.SubArticle;
+// import edu.cmu.webgen.project.SubSubArticle;
 import edu.cmu.webgen.project.Topic;
 import edu.cmu.webgen.rendering.ArticleComparator;
 import edu.cmu.webgen.rendering.Renderer;
@@ -57,18 +57,9 @@ public class CLI {
     }
 
     private void printSize() {
-        long size = this.getSize();
+        long size = this.project.getTotalSize();
         System.out.println("Project size in bytes: %d".formatted(size));
     }
-
-    /**
-     * get size of the story's content files in bytes
-     * 
-     * @return a long corresponding the the size
-     */
-    public long getSize() {
-        return this.project.getTotalSize();
-}
 
     private void cleanTargetDirectory(File targetDirectory) {
         if (targetDirectory.exists()) {
@@ -101,21 +92,40 @@ public class CLI {
             .collect(Collectors.toList());
 
         System.out.println("Articles: ");
-        for (Article topLeveLArticle : topLeveLArticles) {
-            String topicStr = topics ? getTopicsStr(this.project.getTopics(topLeveLArticle)) : "";
-            System.out.println(" - %s (%s) %s".formatted(topLeveLArticle.getTitle(),
-                    WebGen.readableFormat(topLeveLArticle.getPublishedDate()), topicStr));
-            if (all) {
-                for (SubArticle sa : topLeveLArticle.getInnerArticles()) {
-                    String topicStr2 = topics ? getTopicsStr(this.project.getTopics(sa)) : "";
-                    System.out.println("   - %s (%s) %s".formatted(sa.getTitle(),
-                            WebGen.readableFormat(sa.getPublishedDate()), topicStr2));
-                    for (SubSubArticle ssa : sa.getInnerArticles()) {
-                        String topicStr3 = topics ? getTopicsStr(this.project.getTopics(ssa)) : "";
-                        System.out.println("     - %s (%s) %s".formatted(ssa.getTitle(),
-                                WebGen.readableFormat(ssa.getPublishedDate()), topicStr3));
-                    }
-                }
+        for(Article article: topLeveLArticles) {
+            printArticleRecursive(article,0,all,topics);
+        }
+    }
+
+    /**
+     * Recursively print an article and its children.
+     * This replaces the nested loops in the old code.
+     * 
+     * @param article The article to print
+     * @param depth Current nesting depth (for indentation)
+     * @param printChildren Whether to print child articles
+     * @param showTopics Whether to show topic information
+     */
+    private void printArticleRecursive(Article article, int depth, 
+                                      boolean printChildren, boolean showTopics) {
+        // Create indentation based on depth (2 spaces per level)
+        String indent = " ".repeat(depth * 2);
+        
+        // Format topics if requested
+        String topicStr = showTopics ? getTopicsStr(this.project.getTopics(article)) : "";
+        
+        // Print this article
+        System.out.println("%s - %s (%s) %s".formatted(
+            indent,
+            article.getTitle(),
+            WebGen.readableFormat(article.getPublishedDate()),
+            topicStr
+        ));
+        
+        // Recursively print children if requested
+        if (printChildren) {
+            for (Article child : article.getInnerArticles()) {
+                printArticleRecursive(child, depth + 1, printChildren, showTopics);
             }
         }
     }
