@@ -16,8 +16,8 @@ import org.junit.Test;
 public class ProjectTest {
     private Project project;
     private Article a;
-    private SubArticle sa;
-    private SubSubArticle ssa;
+    private Article sa;
+    private Article ssa;
     private HashMap<Object, Set<Topic>> topics;
     private Set<Topic> aTopics = Collections.singleton(mock(Topic.class));
     private Set<Topic> saTopics = Collections.singleton(mock(Topic.class));
@@ -27,9 +27,9 @@ public class ProjectTest {
     @Before
     public void setUp() {
         topics = new HashMap<>();
-        ssa = new SubSubArticle(Collections.emptyList(), "", LocalDateTime.now(), LocalDateTime.now());
-        sa = new SubArticle(Collections.emptyList(), Collections.singletonList(ssa), null, LocalDateTime.now(), LocalDateTime.now());
-        a = new Article(Collections.emptyList(), Collections.singletonList(sa), "", LocalDateTime.now(), LocalDateTime.now());
+        ssa = new Article(Collections.emptyList(), Collections.emptyList(), "ssa", LocalDateTime.now(), LocalDateTime.now(), 2);
+        sa = new Article(Collections.emptyList(), Collections.singletonList(ssa), "sa", LocalDateTime.now(), LocalDateTime.now(), 1);
+        a = new Article(Collections.emptyList(), Collections.singletonList(sa), "a", LocalDateTime.now(), LocalDateTime.now(), 0);
         topics.put(a, aTopics);
         topics.put(sa, saTopics);
         topics.put(ssa, ssaTopics);

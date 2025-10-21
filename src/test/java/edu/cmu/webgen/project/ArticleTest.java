@@ -21,19 +21,19 @@ public class ArticleTest {
     @Test
     public void testArticle() {
         List<AbstractContent> content = new ArrayList<>();
-        List<SubArticle> subArticles = new ArrayList<>();
-        Article article = new Article(content, subArticles, "dir", FEB_SECOND, JAN_FIRST);
+        List<Article> subArticles = new ArrayList<>();
+        Article article = new Article(content, subArticles, "dir", FEB_SECOND, JAN_FIRST, 0);
         System.out.println(article.getMetadata().toString());
         article.addMetadata(new Metadata(Collections.singletonMap("title", "Sample Title")));
         // compareTo
         assertEquals(0, article.compareTo(article));
 
         // getID
-        assertEquals("sample_tiitle", article.getId());
+        assertEquals("sample_title", article.getId());
 
         // getLastUpdate
         Optional<LocalDateTime> innerLastUpdateArticle = article.getInnerArticles()
-                .stream().map(SubArticle::getLastUpdate).max(LocalDateTime::compareTo);
+                .stream().map(Article::getLastUpdate).max(LocalDateTime::compareTo);
         LocalDateTime last = article.getLastUpdate();
         if (innerLastUpdateArticle.isPresent() && innerLastUpdateArticle.get().compareTo(last) > 0)
             last = innerLastUpdateArticle.get();
@@ -41,7 +41,7 @@ public class ArticleTest {
 
         // getCreated
         Optional<LocalDateTime> innerCreatedArticle = article.getInnerArticles()
-                .stream().map(SubArticle::getCreated).max(LocalDateTime::compareTo);
+                .stream().map(Article::getCreated).max(LocalDateTime::compareTo);
         last = article.getCreated();
         if (innerCreatedArticle.isPresent() && innerCreatedArticle.get().compareTo(last) > 0)
             last = innerCreatedArticle.get();
@@ -56,7 +56,7 @@ public class ArticleTest {
         // addMetadata and getMetadata
         article.addMetadata(new Metadata(Collections.singletonMap("key1", "value1")));
         Set<String> keys = new HashSet<>();
-        keys.addAll(List.of("key", "title"));
+        keys.addAll(List.of("key1", "title"));
         assertEquals(keys, article.getMetadata().getKeys());
 
         // addContent and getContent

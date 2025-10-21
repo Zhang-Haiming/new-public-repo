@@ -2,8 +2,6 @@ package edu.cmu.webgen;
 
 import edu.cmu.webgen.project.Article;
 import edu.cmu.webgen.project.Project;
-// import edu.cmu.webgen.project.SubArticle;
-// import edu.cmu.webgen.project.SubSubArticle;
 import edu.cmu.webgen.project.Topic;
 import edu.cmu.webgen.rendering.ArticleComparator;
 import edu.cmu.webgen.rendering.Renderer;

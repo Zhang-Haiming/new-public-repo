@@ -16,17 +16,16 @@ public class Image extends Media {
     //     return this.imageSize;
     // }
 
-    // @Override
-    // public int getAudioLength() {
-    //     throw new UnsupportedOperationException("Images don't have audio length");
-    // }
-    @Override
-    public long getSize() {
-        return this.imageSize;
-    }
-
     @Override
     protected String getTemplateName() {
         return "content-fragment-image";
+    }
+
+    public long getImageSize() {
+        return this.imageSize;
+    }
+
+    public long getAudioLength() {
+        throw new UnsupportedOperationException("Images don't have audio length");
     }
 }
