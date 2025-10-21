@@ -16,7 +16,7 @@ public class FormattedTextDocument extends AbstractContent {
     private final List<Paragraph> paragraphs;
     private final Metadata metadata;
     private final long textSize;
-
+    
     public FormattedTextDocument(List<Paragraph> paragraphs, Metadata metadata, LocalDateTime created,
                           LocalDateTime lastUpdate, long textSize) {
         super(created, lastUpdate);

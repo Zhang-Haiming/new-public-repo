@@ -144,25 +144,18 @@ public class Renderer {
         copyCSS();
     }
 
+    private List<Article> getSortedArticles(Project project) {
+    return project.getArticles().stream()
+            .sorted(new ArticleComparator(this.sorting, project))
+            .collect(Collectors.toList());
+    }
+    
     public void renderHomepage(Project project) throws IOException {
         String relPath = getRelPath(HOME_ADDRESS);
-        List<ArticlePreview> articles = project.getArticles().stream().sorted((o1, o2) -> {
-                    if (this.sorting == WebGenArgs.ArticleSorting.PINNED) {
-                        if (project.isArticlePinned(o1) && !project.isArticlePinned(o2)) return -1;
-                        if (!project.isArticlePinned(o1) && project.isArticlePinned(o2)) return 1;
-                    }
-                    if (this.sorting == WebGenArgs.ArticleSorting.PUBLISHED_FIRST)
-                        if (!o1.getPublishedDate().equals(o2.getPublishedDate()))
-                            return 0 - o1.getPublishedDate().compareTo(o2.getPublishedDate());
-                    if (this.sorting == WebGenArgs.ArticleSorting.PUBLISHED_LAST)
-                        if (!o1.getPublishedDate().equals(o2.getPublishedDate()))
-                            return o1.getPublishedDate().compareTo(o2.getPublishedDate());
-                    if (this.sorting == WebGenArgs.ArticleSorting.EDITED)
-                        if (!o1.getLastUpdate().equals(o2.getLastUpdate()))
-                            return o1.getLastUpdate().compareTo(o2.getLastUpdate());
-                    return o1.getTitle().compareTo(o2.getTitle());
-                }).limit(5).
-                map(a -> renderArticlePreview(a, relPath, "")).collect(Collectors.toList());
+        List<ArticlePreview> articles = getSortedArticles(project).stream()
+            .limit(5)
+            .map(a -> renderArticlePreview(a, relPath, ""))
+            .collect(Collectors.toList());
 //        List<Website.EventListing> upcomingEvents = genEventListing(project.getUpcomingEvents(5));
         List<EventListing> upcomingEvents = Collections.emptyList(); // not yet implemented
         SiteData siteData = genSiteData(project, relPath);
@@ -179,16 +172,6 @@ public class Renderer {
 
     public List<EventListing> genEventListing(List<Event> events) {
         throw new UnsupportedOperationException("Not yet implemented.");
-//        List<Website.EventListing> result = new ArrayList<>();
-//        for (Event e : events) {
-//            List<Event> subEvents = getChildEvents(e);
-//            List<Website.EventListing> subEventListing = genSubEventListing(subEvents);
-//
-//            Website.EventListing eventListing =
-//                new Website.EventListing(getEventURL(e), e.getTitle(), WebGen.readableFormat(e.getStartDate()), subEventListing);
-//            result.add(eventListing);
-//        }
-//        return result;
     }
 
     public void copyCSS() throws IOException {
@@ -306,22 +289,6 @@ public class Renderer {
 
     public void renderEvent(Project project, Event event) throws IOException {
         throw new UnsupportedOperationException("Not yet implemented.");
-//        String pagePath = getEventPath(event);
-//        String relPath = getRelPath(pagePath);
-//        Website.SiteData siteData = genSiteData(project, relPath);
-//        List<Website.SiteLink> topics = event.getTopics().stream().sorted().map(this::mkTopicLink).collect(Collectors.toList());
-//        List<Website.SiteLink> breadcrumbs = Collections.emptyList(); //TODO getBreadcrumbs(event);
-//
-//        Website.EventPage page = new Website.EventPage(
-//                siteData,
-//                event.getTitle(),
-//                breadcrumbs,
-//                WebGen.readableFormat(event.getStartDate()),
-//                WebGen.readableFormat(event.getEndDate()),
-//                topics,
-//                getEventContent(event, relPath)); // like getArticleContent?
-//        File targetFile = new File(new File(targetDirectory, pagePath), "index.html");
-//        templateEngine.render(page.getTemplate(), page, targetFile);
     }
 
     /**
@@ -355,12 +322,6 @@ public class Renderer {
         return new ContentFragment(subsubarticle.getTitle(), w.toString());
     }
 
-//    private Website.ContentFragment getSubEventFragment(SubEvent innerEvent, String relPath) throws IOException {
-//        StringWriter w = new StringWriter();
-//        templateEngine.render("event-preview", renderEventPreview(innerEvent, relPath), w);
-//        return new Website.ContentFragment(innerEvent.getTitle(), w.toString());
-//    }
-
     /**
      * creates a ContentFragment object that contains HTML output for a node.
      * The HTML output for a node is created by invoking the rendering engine on a template
@@ -382,8 +343,6 @@ public class Renderer {
             result.add(getStoryContentFragment(n, relPath));
         for (SubArticle n : story.getInnerArticles())
             result.add(getSubArticleFragment(n, relPath));
-//        for (Event n : story.getInnerEvents())
-//            result.add(getSubEventFragment(n, relPath));
         return result;
     }
 
@@ -393,8 +352,6 @@ public class Renderer {
             result.add(getStoryContentFragment(n, relPath));
         for (SubSubArticle n : story.getInnerArticles())
             result.add(getSubSubArticleFragment(n, relPath));
-//        for (Event n : story.getInnerEvents())
-//            result.add(getSubEventFragment(n, relPath));
         return result;
     }
 
@@ -402,8 +359,6 @@ public class Renderer {
         List<ContentFragment> result = new ArrayList<>();
         for (AbstractContent n : story.getContent())
             result.add(getStoryContentFragment(n, relPath));
-//        for (Event n : story.getInnerEvents())
-//            result.add(getSubEventFragment(n, relPath));
         return result;
     }
 
@@ -416,7 +371,8 @@ public class Renderer {
 
     public List<Object> findAllArticles(Project project) {
         List<Object> result = new ArrayList<>();
-        for (Article a : project.getArticles()) {
+        
+        for (Article a : getSortedArticles(project)) {
             result.add(a);
             for (SubArticle sa : a.getInnerArticles()) {
                 result.add(sa);
@@ -468,7 +424,8 @@ public class Renderer {
 
     public Set<Topic> findAllTopics(Project project) {
         Set<Topic> topics = new HashSet<>();
-        for (Article a : project.getArticles()) {
+        
+        for (Article a : getSortedArticles(project)) {
             topics.addAll(project.getTopics(a));
             for (SubArticle sa : a.getInnerArticles()) {
                 topics.addAll(project.getTopics(sa));
@@ -518,10 +475,6 @@ public class Renderer {
     public SiteURL getSubSubArticleURL(SubSubArticle entry) {
         return createURL(getSubSubArticlePath(entry));
     }
-
-//    private Website.SiteURL getEventURL(Event event) {
-//        return createURL(getEventPath(event));
-//    }
 
     /**
      * get a path with all the parents of other (sub)articles
@@ -589,25 +542,6 @@ public class Renderer {
 
     public void renderEventList(Project project) throws IOException {
         throw new UnsupportedOperationException("Events not yet implemented");
-//        List<List<Event>> eventPages = paginateContent(findAllEvents(project).iterator(), 5);
-//        String basePath = EVENTS_ADDRESS;
-//        for (int pageIdx = 0; pageIdx < eventPages.size(); pageIdx++) {
-//            String pagePath = createPaginatedPath(basePath, pageIdx);
-//            List<Event> events = eventPages.get(pageIdx);
-//            Website.Pagination pagination = createPagination(pageIdx, eventPages.size(), (i) -> createURL(createPaginatedPath(basePath, i)));
-//            List<Website.EventPreview> previews = new ArrayList<>();
-//            String relPath = getRelPath(pagePath);
-//            for (Event s : events)
-//                previews.add(renderEventPreview(s, relPath));
-//            Website.EventListPage page = new Website.EventListPage(
-//                    genSiteData(project, relPath),
-//                    "Events",
-//                    hasPagination(pagination),
-//                    pagination,
-//                    previews);
-//            File targetFile = new File(new File(targetDirectory, pagePath), "index.html");
-//            templateEngine.render(page.getTemplate(), page, targetFile);
-//        }
     }
 
     /**
@@ -704,19 +638,6 @@ public class Renderer {
      * @return an EventPreview object for the template engine
      */
     public EventPreview renderEventPreview(Event event, String relPath) throws IOException {
-//        StringWriter w = new StringWriter();
-//        int previewLength = 200;
-//        for (AbstractContent c : event.getContent())
-//            if (c instanceof FormattedTextDocument)
-//                if (previewLength > 0)
-//                    previewLength = ((FormattedTextDocument) c).toPreview(w, previewLength);
-//
-//        return new Website.EventPreview(
-//                event.getTitle(),
-//                WebGen.readableFormat(event.getStartDate()),
-//                WebGen.readableFormat(event.getEndDate()),
-//                w.toString(),
-//                relPath, getEventURL(event));
         throw new UnsupportedOperationException("Events not yet implemented");
     }
 }
