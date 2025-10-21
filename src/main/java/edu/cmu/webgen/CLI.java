@@ -1,18 +1,16 @@
 package edu.cmu.webgen;
 
 import edu.cmu.webgen.project.Article;
-import edu.cmu.webgen.project.AbstractContent;
 import edu.cmu.webgen.project.Project;
 import edu.cmu.webgen.project.SubArticle;
 import edu.cmu.webgen.project.SubSubArticle;
 import edu.cmu.webgen.project.Topic;
+import edu.cmu.webgen.rendering.ArticleComparator;
 import edu.cmu.webgen.rendering.Renderer;
 import edu.cmu.webgen.rendering.TemplateEngine;
 import java.io.File;
 import java.io.IOException;
 import java.util.stream.Collectors;
-import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import org.apache.commons.io.FileUtils;
@@ -69,19 +67,7 @@ public class CLI {
      * @return a long corresponding the the size
      */
     public long getSize() {
-        List<AbstractContent> allContent = new ArrayList<>();
-        for (Article a : this.project.getArticles()) {
-            allContent.addAll(a.getContent());
-            for (SubArticle sa : a.getInnerArticles()) {
-                allContent.addAll(sa.getContent());
-                for (SubSubArticle ssa : sa.getInnerArticles()) {
-                    allContent.addAll(ssa.getContent());
-                }
-            }
-        }        
-        return allContent.stream()
-            .mapToLong(AbstractContent::getSize)
-            .sum();
+        return this.project.getTotalSize();
 }
 
     private void cleanTargetDirectory(File targetDirectory) {
@@ -102,44 +88,17 @@ public class CLI {
 
     private void printTopics() {
         System.out.println("Topics: ");
-
         findAllTopics().stream().sorted().forEach(t -> System.out.println(" - %s".formatted(t.getName())));
     }
 
     private Set<Topic> findAllTopics() {
-        Set<Topic> topics = new HashSet<>();
-        for (Article a : this.project.getArticles()) {
-            topics.addAll(this.project.getTopics(a));
-            for (SubArticle sa : a.getInnerArticles()) {
-                topics.addAll(this.project.getTopics(sa));
-                for (SubSubArticle ssa : sa.getInnerArticles()) {
-                    topics.addAll(this.project.getTopics(ssa));
-                }
-            }
-        }
-        return topics;
+        return this.project.getAllTopics();
     }
 
     private void printArticles(boolean all, boolean topics, WebGenArgs.ArticleSorting sorting) {
-        List<Article> topLeveLArticles = project.getArticles();
-        topLeveLArticles.sort((o1, o2) -> {
-            if (sorting == WebGenArgs.ArticleSorting.PINNED) {
-                if (this.project.isArticlePinned(o1) && !this.project.isArticlePinned(o2))
-                    return -1;
-                if (!this.project.isArticlePinned(o1) && this.project.isArticlePinned(o2))
-                    return 1;
-            }
-            if (sorting == WebGenArgs.ArticleSorting.PUBLISHED_FIRST)
-                if (!o1.getPublishedDate().equals(o2.getPublishedDate()))
-                    return 0 - o1.getPublishedDate().compareTo(o2.getPublishedDate());
-            if (sorting == WebGenArgs.ArticleSorting.PUBLISHED_LAST)
-                if (!o1.getPublishedDate().equals(o2.getPublishedDate()))
-                    return o1.getPublishedDate().compareTo(o2.getPublishedDate());
-            if (sorting == WebGenArgs.ArticleSorting.EDITED)
-                if (!o1.getLastUpdate().equals(o2.getLastUpdate()))
-                    return o1.getLastUpdate().compareTo(o2.getLastUpdate());
-            return o1.getTitle().compareTo(o2.getTitle());
-        });
+        List<Article> topLeveLArticles = project.getArticles().stream()
+            .sorted(new ArticleComparator(sorting, project))
+            .collect(Collectors.toList());
 
         System.out.println("Articles: ");
         for (Article topLeveLArticle : topLeveLArticles) {
@@ -163,28 +122,7 @@ public class CLI {
 
     private void printEvents(boolean all, boolean topics) {
         System.out.println("Events not yet supported");
-        // List<Event> events = project.getEvents();
-        //
-        // System.out.println("Events: ");
-        // events.stream().sorted(new EventComparator()).forEach(event ->
-        // printEvent(event, all, topics)
-        // );
     }
-
-    // private void printSubEvent(Event event, int indent, boolean printInner,
-    // boolean topics) {
-    // String prefix = " ".repeat(indent);
-    // String topicStr = topics ? getTopicsStr(event.getTopics()) : "";
-    // System.out.println(prefix + " - %s-%s: %s%s".formatted(
-    // DateUtils.readableFormat(event.getStartDate()),
-    // DateUtils.readableFormat(event.getEndDate()),
-    // event.getTitle(),
-    // topicStr));
-    // if (printInner)
-    // for (SubEvent innerEvent : findSubEvents(event))
-    // if (innerEvent.getParentEvent() == event)
-    // printSubEvent(innerEvent, indent + 1, topics);
-    // }
 
     private String getTopicsStr(Set<Topic> topics) {
         return topics.stream().sorted().map(Topic::getName).collect(Collectors.joining(", ", " [", "]"));

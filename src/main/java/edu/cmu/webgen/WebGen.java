@@ -9,7 +9,6 @@ import edu.cmu.webgen.project.Topic;
 
 import org.natty.Parser;
 
-import java.nio.file.attribute.FileTime;
 import java.text.ParseException;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -101,16 +100,6 @@ public class WebGen {
         }
         result.add(pageContent);
         return result;
-    }
-
-    /**
-     * helper functions to convert FileTime into LocalDateTime
-     *
-     * @param fileTime input time
-     * @return LocalDateTime object for the same file
-     */
-    public LocalDateTime getDateTime(FileTime fileTime) {
-        return LocalDateTime.ofInstant(fileTime.toInstant(), ZoneId.systemDefault());
     }
 
     public List<Object> findArticlesByTopic(Project project, Topic topic) {

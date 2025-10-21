@@ -102,11 +102,6 @@
                         <classpath/>
                         <argument>edu.cmu.webgen.WebGen</argument>
                         <argument>-d=testProject</argument>
-                        <argument>--size</argument>
-                        <argument>--list-articles</argument>
-                        <argument>--all</argument>
-                        <argument>--list-events</argument>
-                        <argument>--topics</argument>
                         <argument>--clean</argument>
                     </arguments>
                 </configuration>

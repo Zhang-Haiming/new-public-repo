@@ -102,6 +102,22 @@ public class Project {
         return this.ownerOrg;
     }
 
+    public long getTotalSize() {
+        List<AbstractContent> allContent = new ArrayList<>();
+        for (Article a : this.articles) {
+            allContent.addAll(a.getContent());
+            for (SubArticle sa : a.getInnerArticles()) {
+                allContent.addAll(sa.getContent());
+                for (SubSubArticle ssa : sa.getInnerArticles()) {
+                    allContent.addAll(ssa.getContent());
+                }
+            }
+        }        
+        return allContent.stream()
+            .mapToLong(AbstractContent::getSize)
+            .sum();
+    }   
+
     public boolean isArticlePinned(Article article) {
         return article.getMetadata().has("pinned") && !article.getMetadata().get("pinned").equals("false");
     }
